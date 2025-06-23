@@ -1,4 +1,4 @@
-import api from "../../../motiisasa/src/utils/utils";
+import api from "../utils/api";
 
 interface Feedback {
   id: number;
