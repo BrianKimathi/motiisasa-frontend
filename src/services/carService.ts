@@ -1,4 +1,5 @@
 import api from "../utils/api";
+import { AxiosError } from "axios"; // Add this import
 import type {
   Car,
   Pagination,
@@ -364,12 +365,12 @@ export const carService = {
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
+      console.error("getLatestCars error:", err);
       throw new Error(
         err.response?.data?.message || "Failed to fetch latest cars"
       );
     }
   },
-
   getAuctionedCars: async (
     token: string,
     page: number,
@@ -524,9 +525,21 @@ export const carService = {
   listBrands: async (signal?: AbortSignal): Promise<BrandResponse> => {
     try {
       const response = await api.get("/car/brands", { signal });
+      console.log(
+        "listBrands HTTP status:",
+        response.status,
+        "data:",
+        response.data
+      );
       return response.data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
+      const err = error as AxiosError<{ message?: string }>;
+      console.error("listBrands error:", {
+        name: err.name,
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+      });
       throw new Error(err.response?.data?.message || "Failed to fetch brands");
     }
   },

@@ -110,23 +110,37 @@ export default function Search() {
 
   // Fetch brands on mount
   useEffect(() => {
+    console.log("Brands useEffect mounted at", new Date().toISOString());
     const controller = new AbortController();
     carService
       .listBrands(controller.signal)
       .then((res: BrandResponse) => {
-        if (res.status === "success" && res.data) {
+        console.log("listBrands response:", JSON.stringify(res));
+        if (res.status === "success" && Array.isArray(res.data)) {
+          console.log(`Brands fetched: ${JSON.stringify(res)}`);
           setBrands(res.data);
         } else {
           setBrands([]);
-          console.error(res.message || "Failed to fetch brands");
+          console.error(
+            "Failed to fetch brands. Response:",
+            JSON.stringify(res)
+          );
         }
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name !== "AbortError") {
-          console.error("Error fetching brands:", err.message);
+          console.error(
+            "Error fetching brands:",
+            err.name,
+            err.message,
+            err.stack
+          );
         }
       });
-    return () => controller.abort();
+    return () => {
+      console.log("Brands useEffect cleanup at", new Date().toISOString());
+      controller.abort();
+    };
   }, []);
 
   // Fetch models when brandId changes

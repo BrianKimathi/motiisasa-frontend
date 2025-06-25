@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { carService } from "../services/carService";
 import type { Car, CarResponse } from "../services/carService";
 import { FaCarSide, FaMapMarkerAlt, FaGasPump, FaRoad } from "react-icons/fa";
-import Layout from "../components/Layout";
+import { Link } from "react-router-dom";
 import SimilarCars from "../components/SimilarCars";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
@@ -60,16 +60,13 @@ const CarDetails = () => {
         const response: CarResponse = await carService.getCarById(
           parseInt(carId)
         );
-        if (
-          response.status === "success" &&
-          response.data &&
-          response.data.car
-        ) {
-          setCar(response.data.car);
-          setSelectedImage(response.data.car.images?.[0] || "/placeholder.png");
-          toast.success("Car retrieved successfully!");
+        console.log(`Response: ${JSON.stringify(response, null, 2)}`);
+        if (response.status === "success" && response.data) {
+          setCar(response.data); // Updated: Use response.data directly
+          setSelectedImage(response.data.images?.[0] || "/placeholder.png");
+          toast.success("Car details loaded!");
         } else {
-          const message = response.message || "Car data not found";
+          const message = response.message || "Car not found";
           setError(message);
           toast.error(message);
         }
@@ -78,6 +75,7 @@ const CarDetails = () => {
           err instanceof Error ? err.message : "Failed to fetch car details";
         setError(errorMessage);
         toast.error(errorMessage);
+        console.error("getCarById error:", err);
       } finally {
         setLoading(false);
       }
@@ -137,10 +135,28 @@ const CarDetails = () => {
     }
   };
 
-  if (loading) return <div className="text-center mt-8">Loading...</div>;
-  if (error)
-    return <div className="text-center mt-8 text-red-500">Error: {error}</div>;
-  if (!car) return <div className="text-center mt-8">No car found</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="w-16 h-16 border-t-4 border-[#f26624] border-dashed rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-500 text-center py-12">{error}</div>;
+  }
+
+  if (!car) {
+    return <div className="text-blue-500 text-center py-12">Car not found</div>;
+  }
+
+  const featuresArr = car.features
+    ? car.features
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean)
+    : [];
 
   const displayPrice =
     car.listing_type === "auction" && car.highest_bid
@@ -148,111 +164,233 @@ const CarDetails = () => {
       : car.asking_price;
 
   return (
-    <Layout>
-      <div className="car-details max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="car-images">
+    <>
+      <section className="px-6 md:px-16 lg:px-24 py-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Image Slider & Price */}
+        <div>
+          <div className="border rounded-lg overflow-hidden">
             <img
               src={selectedImage || "/placeholder.png"}
-              alt={`${car.brand || "Car"} ${car.model || ""}`}
-              className="w-full h-96 object-cover rounded-lg mb-4"
+              alt={`${car.brand} ${car.model}`}
+              className="w-full h-96 object-cover"
+              onError={(e) => {
+                console.log(`Image load error for ${selectedImage}`);
+                e.currentTarget.src = "/placeholder.png";
+              }}
             />
-            <div className="thumbnail-gallery flex flex-wrap items-center gap-2 overflow-x-auto">
-              {car.images?.length ? (
-                car.images.map((img: string, index: number) => (
-                  <img
-                    key={index}
-                    src={img}
-                    alt={`Thumbnail ${index}`}
-                    onClick={() => setSelectedImage(img)}
-                    className={`w-20 h-20 object-cover rounded cursor-pointer ${
-                      selectedImage === img ? "border-2 border-blue-500" : ""
-                    }`}
-                    width={80}
-                    height={80}
-                  />
-                ))
-              ) : (
-                <div>No images available</div>
-              )}
-            </div>
           </div>
-          <div className="car-info">
-            <h1 className="text-3xl font-bold mb-2">
-              {car.brand || "Unknown"} {car.model || "Model"}
-            </h1>
-            <p className="text-xl font-semibold text-gray-700 mb-4">
+          {car.images && car.images.length > 1 && (
+            <div className="flex gap-2 mt-4 overflow-x-auto">
+              {car.images.map((img, index) => (
+                <img
+                  key={index}
+                  src={img}
+                  alt={`Thumbnail ${index}`}
+                  className={`w-20 h-16 object-cover border rounded cursor-pointer ${
+                    selectedImage === img
+                      ? "border-[#262162]"
+                      : "border-gray-300"
+                  }`}
+                  onClick={() => setSelectedImage(img)}
+                  onError={(e) => {
+                    console.log(`Thumbnail load error for ${img}`);
+                    e.currentTarget.src = "/placeholder.png";
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <div className="mt-6 p-4 bg-gray-100 rounded-lg flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-[#262162]">
               {formatPrice(
                 displayPrice,
                 car.currency,
                 car.listing_type === "auction",
                 !!car.highest_bid
               )}
-            </p>
-            <div className="car-specs grid grid-cols-2 gap-4 mb-6">
-              <p className="flex items-center gap-2">
-                <FaCarSide /> {car.year_of_manufacture || "N/A"}
+            </h2>
+            <span
+              className={`px-4 py-2 text-sm font-semibold rounded-lg ${
+                car.listing_type === "sale"
+                  ? "bg-blue-600 text-white"
+                  : car.listing_type === "hire"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            >
+              {car.listing_type.charAt(0).toUpperCase() +
+                car.listing_type.slice(1)}
+            </span>
+          </div>
+          {car.listing_type === "auction" && (
+            <div className="mt-4 p-4 bg-white border rounded-lg">
+              <h3 className="text-lg font-semibold text-[#262162]">
+                Auction Details
+              </h3>
+              <p className="text-gray-600">
+                Current Highest Bid:{" "}
+                {car.highest_bid
+                  ? formatPrice(car.highest_bid, car.currency)
+                  : "No bids yet"}
               </p>
-              <p className="flex items-center gap-2">
-                <FaMapMarkerAlt /> {car.location || "N/A"}
-              </p>
-              <p className="flex items-center gap-2">
-                <FaGasPump /> {car.fuel_type || "N/A"}
-              </p>
-              <p className="flex items-center gap-2">
-                <FaRoad />{" "}
-                {car.mileage
-                  ? `${car.mileage} ${car.mileage_unit || ""}`
-                  : "N/A"}
-              </p>
-            </div>
-            {car.listing_type === "auction" && (
-              <div className="auction-info mb-6">
-                <p className="text-gray-600">
-                  Auction Ends:{" "}
-                  {car.auction_end_time
-                    ? new Date(car.auction_end_time).toLocaleString()
-                    : "N/A"}
+              {user && token && isAuctionActive() && (
+                <div className="mt-4">
+                  <input
+                    type="number"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    placeholder="Enter your bid amount"
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262162]"
+                    disabled={isBidding}
+                  />
+                  <button
+                    onClick={handlePlaceBid}
+                    disabled={isBidding}
+                    className={`mt-2 w-full bg-[#262162] text-white py-2 rounded-lg hover:bg-[#1e1a55] transition ${
+                      isBidding ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {isBidding ? "Placing Bid..." : "Place Bid"}
+                  </button>
+                </div>
+              )}
+              {!user && (
+                <p className="text-gray-600 mt-2">
+                  Please{" "}
+                  <Link
+                    to="/authentication"
+                    className="text-[#262162] underline"
+                  >
+                    log in
+                  </Link>{" "}
+                  to place a bid.
                 </p>
-                {isAuctionActive() && (
-                  <div className="bid-section mt-4 flex gap-4">
-                    <input
-                      type="number"
-                      value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
-                      placeholder="Enter bid amount"
-                      disabled={isBidding}
-                      className="border p-2 rounded w-full"
-                    />
-                    <button
-                      onClick={handlePlaceBid}
-                      disabled={isBidding}
-                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-                    >
-                      {isBidding ? "Placing Bid..." : "Place Bid"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="seller-info bg-gray-100 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Seller Information</h3>
-              <p>Name: {car.user?.name || "N/A"}</p>
-              <p>Email: {car.user?.email || "N/A"}</p>
-              <p>Phone: {car.user?.phone || "N/A"}</p>
-              {car.user?.showroom_corporate && (
-                <p>Showroom: {car.user.showroom_corporate.name || "N/A"}</p>
               )}
             </div>
+          )}
+        </div>
+
+        {/* Car Details */}
+        <div>
+          <h1 className="text-3xl font-bold text-[#262162]">
+            {car.brand} {car.model} ({car.year_of_manufacture || "N/A"})
+          </h1>
+
+          {featuresArr.length > 0 && (
+            <div className="mt-4">
+              <h2 className="text-xl font-semibold text-[#262162]">Features</h2>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {featuresArr.map((feature, idx) => (
+                  <span
+                    key={`${car.id}-feature-${idx}`}
+                    className="bg-gray-200 text-gray-600 px-2 py-1 text-sm rounded"
+                  >
+                    {feature}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <h2 className="text-xl font-semibold mt-6">Specifications</h2>
+          <ul className="mt-2 text-gray-600 space-y-2">
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Registration Number: {car.registration_number || "N/A"}
+            </li>
+            <li>
+              <FaMapMarkerAlt className="inline-block mr-2 text-[#262162]" />
+              Location: {car.location || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Transmission: {car.transmission_type || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Propulsion: {car.propulsion || "N/A"}
+            </li>
+            <li>
+              <FaGasPump className="inline-block mr-2 text-[#262162]" />
+              Fuel Type: {car.fuel_type || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Condition: {car.condition || "N/A"}
+            </li>
+            <li>
+              <FaRoad className="inline-block mr-2 text-[#262162]" />
+              Mileage:{" "}
+              {car.mileage
+                ? `${car.mileage} ${car.mileage_unit || "KM"}`
+                : "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Acceleration: {car.acceleration || "N/A"}
+            </li>
+            <li>
+              <FaGasPump className="inline-block mr-2 text-[#262162]" />
+              Consumption: {car.consumption_rate || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Car Type: {car.car_type || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Vehicle Category: {car.vehicle_category || "N/A"}
+            </li>
+            <li>
+              <FaCarSide className="inline-block mr-2 text-[#262162]" />
+              Tax: {car.price_tax || "N/A"}
+            </li>
+          </ul>
+
+          <div className="mt-8 border-t pt-6">
+            <h2 className="text-xl font-semibold text-[#262162]">
+              Seller Information
+            </h2>
+            <div className="flex items-center gap-3 mt-4">
+              <img
+                src={
+                  car.user?.showroom_corporate?.logo_url ||
+                  car.user?.profile_photo ||
+                  "/placeholder.png"
+                }
+                alt={car.user?.name || "Seller"}
+                className="w-10 h-10 rounded-full object-cover"
+                onError={(e) => {
+                  console.log(`Seller image load error`);
+                  e.currentTarget.src = "/placeholder.png";
+                }}
+              />
+              <div>
+                <h3 className="text-gray-900 font-semibold">
+                  {car.user?.showroom_corporate?.name ||
+                    car.user?.name ||
+                    "Unknown"}
+                </h3>
+                {car.is_verified && (
+                  <span className="text-green-600 text-sm flex items-center">
+                    ✔ Verified Seller
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-gray-600 mt-2">
+              Contact: {car.user?.phone || "N/A"}
+            </p>
+            <p className="text-gray-600">Email: {car.user?.email || "N/A"}</p>
           </div>
         </div>
-        <SimilarCars
-          carId={car.id}
-          askingPrice={displayPrice ?? ""}
-          currency={car.currency ?? "KES"}
-        />
-      </div>
-    </Layout>
+      </section>
+      <SimilarCars
+        carId={car.id}
+        askingPrice={displayPrice ?? ""}
+        currency={car.currency ?? "KES"}
+      />
+    </>
   );
 };
 

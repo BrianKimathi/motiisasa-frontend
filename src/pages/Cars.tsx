@@ -8,13 +8,7 @@ import type { AppDispatch, RootState } from "../redux/store";
 import { fetchAllCars } from "../redux/carsSlice";
 import { toast } from "react-toastify";
 import { FaTimes, FaSearch, FaHeart, FaFilter } from "react-icons/fa";
-import type {
-  Car,
-  Pagination,
-  CarFilters,
-  Brand,
-  CarModel,
-} from "../types/types"; // Removed CarResponse
+import type { Car, Pagination, CarFilters, Brand, CarModel } from "../types/types";
 import Layout from "../components/Layout";
 
 // SWR fetcher for cars
@@ -123,31 +117,74 @@ const Cars = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [favoriteCarIds, setFavoriteCarIds] = useState<number[]>([]);
 
-  // Input value states for controlled inputs
-  const [tempQuery, setTempQuery] = useState("");
-  const [tempMinPrice, setTempMinPrice] = useState("");
-  const [tempMaxPrice, setTempMaxPrice] = useState("");
-  // Removed tempLocation
-  const [tempMinYom, setTempMinYom] = useState("");
-  const [tempMaxYom, setTempMaxYom] = useState("");
+  // Input refs for debugging focus
+  const queryInputRef = useRef<HTMLInputElement>(null);
+  const minPriceInputRef = useRef<HTMLInputElement>(null);
+  const maxPriceInputRef = useRef<HTMLInputElement>(null);
+  const minYomInputRef = useRef<HTMLInputElement>(null);
+  const maxYomInputRef = useRef<HTMLInputElement>(null);
+  const locationSelectRef = useRef<HTMLSelectElement>(null);
 
-  // Debounced state setters
-  const debouncedSetQuery = useCallback(debounce(setQuery, 500), []);
-  const debouncedSetMinPrice = useCallback(debounce(setMinPrice, 500), []);
-  const debouncedSetMaxPrice = useCallback(debounce(setMaxPrice, 500), []);
-  const debouncedSetLocation = useCallback(debounce(setLocation, 1000), []);
-  const debouncedSetMinYom = useCallback(debounce(setMinYom, 500), []);
-  const debouncedSetMaxYom = useCallback(debounce(setMaxYom, 500), []);
+  // Debounced filter application
+  const debouncedApplyFilters = useCallback(
+    debounce(() => {
+      setQuery(query);
+      setMinPrice(minPrice);
+      setMaxPrice(maxPrice);
+      setLocation(location);
+      setMinYom(minYom);
+      setMaxYom(maxYom);
+      setCurrentPage(1); // Reset to first page on filter apply
+    }, 500),
+    [query, minPrice, maxPrice, location, minYom, maxYom]
+  );
 
-  // Sync input values with state
+  // Sync states with URL params on load
   useEffect(() => {
-    setTempQuery(query);
-    setTempMinPrice(minPrice);
-    setTempMaxPrice(maxPrice);
-    // Removed tempLocation
-    setMinYom(minYom);
-    setMaxYom(maxYom);
-  }, [query, minPrice, maxPrice, minYom, maxYom]);
+    const params = Object.fromEntries(searchParams.entries());
+    setQuery(params.query || "");
+    setMinPrice(params.min_price || "");
+    setMaxPrice(params.max_price || "");
+    setLocation(
+      (params.location as
+        | "Available in Kenya"
+        | "Direct Import/International Stock"
+        | "Both"
+        | "") || ""
+    );
+    setMinYom(params.min_yom || "");
+    setMaxYom(params.max_yom || "");
+    setListingType(
+      params.listing_type
+        ? (params.listing_type.split(",") as ("sale" | "hire" | "auction")[])
+        : []
+    );
+    setSearchBy((params.search_by as "name" | "model" | "year" | "") || "");
+    setCurrency(
+      (params.currency as "All Currencies" | "USD" | "KES" | "") || ""
+    );
+    setTransmission(
+      (params.transmission_type as "Automatic" | "Manual" | "") || ""
+    );
+    setPropulsion(
+      (params.propulsion as "Gas" | "Electric" | "Hybrid" | "") || ""
+    );
+    setFuelTypes(
+      params.fuel_type
+        ? (params.fuel_type.split(",") as ("Petrol" | "Diesel")[])
+        : []
+    );
+    setCondition(
+      (params.condition as
+        | "Brand New"
+        | "Foreign Used"
+        | "Locally Used"
+        | "") || ""
+    );
+    setBrandId(params.brand_id ? parseInt(params.brand_id) : undefined);
+    setModelId(params.model_id ? parseInt(params.model_id) : undefined);
+    setCurrentPage(parseInt(params.page || "1") || 1);
+  }, [searchParams]);
 
   // Fetch brands
   useEffect(() => {
@@ -316,61 +353,12 @@ const Cars = () => {
 
   useEffect(() => {
     debouncedUpdateURL();
-    return () => debouncedUpdateURL.cancel();
-  }, [filters, currentPage, debouncedUpdateURL]);
-
-  // Initialize filters from URL
-  useEffect(() => {
-    const params = Object.fromEntries(searchParams.entries());
-    setListingType(
-      params.listing_type
-        ? (params.listing_type.split(",") as ("sale" | "hire" | "auction")[])
-        : []
-    );
-    setSearchBy((params.search_by as "name" | "model" | "year" | "") || "");
-    setQuery(params.query || "");
-    setTempQuery(params.query || "");
-    setMinPrice(params.min_price || "");
-    setTempMinPrice(params.min_price || "");
-    setMaxPrice(params.max_price || "");
-    setTempMaxPrice(params.max_price || "");
-    setLocation(
-      (params.location as
-        | "Available in Kenya"
-        | "Direct Import/International Stock"
-        | "Both"
-        | "") || ""
-    );
-    // Removed tempLocation
-    setMinYom(params.min_yom || "");
-    setTempMinYom(params.min_yom || "");
-    setMaxYom(params.max_yom || "");
-    setTempMaxYom(params.max_yom || "");
-    setCurrency(
-      (params.currency as "All Currencies" | "USD" | "KES" | "") || ""
-    );
-    setTransmission(
-      (params.transmission_type as "Automatic" | "Manual" | "") || ""
-    );
-    setPropulsion(
-      (params.propulsion as "Gas" | "Electric" | "Hybrid" | "") || ""
-    );
-    setFuelTypes(
-      params.fuel_type
-        ? (params.fuel_type.split(",") as ("Petrol" | "Diesel")[])
-        : []
-    );
-    setCondition(
-      (params.condition as
-        | "Brand New"
-        | "Foreign Used"
-        | "Locally Used"
-        | "") || ""
-    );
-    setBrandId(params.brand_id ? parseInt(params.brand_id) : undefined);
-    setModelId(params.model_id ? parseInt(params.model_id) : undefined);
-    setCurrentPage(parseInt(params.page || "1") || 1);
-  }, [searchParams]);
+    debouncedApplyFilters();
+    return () => {
+      debouncedUpdateURL.cancel();
+      debouncedApplyFilters.cancel();
+    };
+  }, [filters, currentPage, debouncedUpdateURL, debouncedApplyFilters]);
 
   // SWR key
   const swrKey = useMemo(
@@ -426,11 +414,9 @@ const Cars = () => {
 
   // Render car card
   const renderCarCard = (car: Car) => {
-    // Validate features
-    let featuresArr: string[] = [];
-    if (Array.isArray(car.features) && car.features) {
-      featuresArr = car.features.filter((f: string) => !!f);
-    }
+    const featuresArr: string[] = Array.isArray(car.features)
+      ? car.features.filter((f: string) => !!f)
+      : [];
     const displayedFeatures = featuresArr.slice(0, 3);
     const isFavorited = favoriteCarIds.includes(car.id);
 
@@ -479,7 +465,7 @@ const Cars = () => {
                   car.user?.name ||
                   "Unknown"}
               </h3>
-              {car.is_verified && (
+              {car.user?.is_verified && (
                 <span className="text-green-600 text-xs flex items-center">
                   ✔ Verified Dealer
                 </span>
@@ -696,7 +682,7 @@ const Cars = () => {
   // Filter Section Component
   function FilterSection() {
     return (
-      <div className="bg-white p-4 rounded-xl shadow-lg">
+      <div className="bg-white p-4 rounded-xl shadow-lg lg:shadow-none">
         <h2 className="text-xl font-bold text-[#262162] mb-4 flex items-center">
           <span className="mr-2">Filter Cars</span>
           <FaSearch className="text-[#f26624]" />
@@ -711,7 +697,6 @@ const Cars = () => {
                 onClick={() => {
                   setSearchBy("");
                   setQuery("");
-                  setTempQuery("");
                 }}
                 className="text-[#f26624] hover:text-[#262162] transition"
                 title="Reset Search"
@@ -734,11 +719,12 @@ const Cars = () => {
               ))}
             </select>
             <input
+              ref={queryInputRef}
               type="text"
-              value={tempQuery}
+              value={query}
               onChange={(e) => {
-                setTempQuery(e.target.value);
-                debouncedSetQuery(e.target.value);
+                setQuery(e.target.value);
+                debouncedApplyFilters();
               }}
               placeholder="Search..."
               className="border border-gray-300 p-2 w-full rounded-lg mt-1 focus:ring-2 focus:ring-[#f26624] transition text-sm"
@@ -839,9 +825,7 @@ const Cars = () => {
               <button
                 onClick={() => {
                   setMinPrice("");
-                  setTempMinPrice("");
                   setMaxPrice("");
-                  setTempMaxPrice("");
                 }}
                 className="text-[#f26624] hover:text-[#262162] transition"
                 title="Reset Price Range"
@@ -851,24 +835,34 @@ const Cars = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 mt-1">
               <input
+                ref={minPriceInputRef}
                 type="number"
-                value={tempMinPrice}
+                min="0"
+                value={minPrice}
                 onChange={(e) => {
-                  setTempMinPrice(e.target.value);
-                  debouncedSetMinPrice(e.target.value);
+                  const value = e.target.value;
+                  if (value === "" || Number(value) >= 0) {
+                    setMinPrice(value);
+                    debouncedApplyFilters();
+                  }
                 }}
                 placeholder="Min Price"
-                className="border border-gray-300 rounded-lg p-2 text-sm"
+                className="border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#f26624] transition"
               />
               <input
+                ref={maxPriceInputRef}
                 type="number"
-                value={tempMaxPrice}
+                min="0"
+                value={maxPrice}
                 onChange={(e) => {
-                  setTempMaxPrice(e.target.value);
-                  debouncedSetMaxPrice(e.target.value);
+                  const value = e.target.value;
+                  if (value === "" || Number(value) >= 0) {
+                    setMaxPrice(value);
+                    debouncedApplyFilters();
+                  }
                 }}
                 placeholder="Max Price"
-                className="border border-gray-300 rounded-lg p-2 text-sm"
+                className="border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#f26624] transition"
               />
             </div>
           </div>
@@ -888,15 +882,16 @@ const Cars = () => {
               </button>
             </div>
             <select
+              ref={locationSelectRef}
               value={location}
               onChange={(e) => {
-                debouncedSetLocation(
-                  e.target.value as
-                    | "Available in Kenya"
-                    | "Direct Import/International Stock"
-                    | "Both"
-                    | ""
-                );
+                const value = e.target.value as
+                  | "Available in Kenya"
+                  | "Direct Import/International Stock"
+                  | "Both"
+                  | "";
+                setLocation(value);
+                debouncedApplyFilters();
               }}
               className="border border-gray-300 p-2 w-full rounded-lg mt-1 focus:ring-2 focus:ring-[#f26624] transition text-sm"
             >
@@ -916,9 +911,7 @@ const Cars = () => {
               <button
                 onClick={() => {
                   setMinYom("");
-                  setTempMinYom("");
                   setMaxYom("");
-                  setTempMaxYom("");
                 }}
                 className="text-[#f26624] hover:text-[#262162] transition"
                 title="Reset Year"
@@ -928,24 +921,44 @@ const Cars = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 mt-1">
               <input
+                ref={minYomInputRef}
                 type="number"
-                value={tempMinYom}
+                min="1900"
+                max={new Date().getFullYear()}
+                value={minYom}
                 onChange={(e) => {
-                  setTempMinYom(e.target.value);
-                  debouncedSetMinYom(e.target.value);
+                  const value = e.target.value;
+                  if (
+                    value === "" ||
+                    (Number(value) >= 1900 &&
+                      Number(value) <= new Date().getFullYear())
+                  ) {
+                    setMinYom(value);
+                    debouncedApplyFilters();
+                  }
                 }}
                 placeholder="Min Year"
-                className="border border-gray-300 p-2 rounded-lg text-sm"
+                className="border border-gray-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-[#f26624] transition"
               />
               <input
+                ref={maxYomInputRef}
                 type="number"
-                value={tempMaxYom}
+                min="1900"
+                max={new Date().getFullYear()}
+                value={maxYom}
                 onChange={(e) => {
-                  setTempMaxYom(e.target.value);
-                  debouncedSetMaxYom(e.target.value);
+                  const value = e.target.value;
+                  if (
+                    value === "" ||
+                    (Number(value) >= 1900 &&
+                      Number(value) <= new Date().getFullYear())
+                  ) {
+                    setMaxYom(value);
+                    debouncedApplyFilters();
+                  }
                 }}
                 placeholder="Max Year"
-                className="border border-gray-300 p-2 rounded-lg text-sm"
+                className="border border-gray-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-[#f26624] transition"
               />
             </div>
           </div>
@@ -1101,35 +1114,47 @@ const Cars = () => {
               ))}
             </select>
           </div>
-          <button
-            onClick={() => {
-              setListingType([]);
-              setSearchBy("");
-              setQuery("");
-              setTempQuery("");
-              setMinPrice("");
-              setTempMinPrice("");
-              setMaxPrice("");
-              setTempMaxPrice("");
-              setLocation("");
-              setMinYom("");
-              setTempMinYom("");
-              setMaxYom("");
-              setTempMaxYom("");
-              setCurrency("");
-              setTransmission("");
-              setPropulsion("");
-              setFuelTypes([]);
-              setCondition("");
-              setBrandId(undefined);
-              setModelId(undefined);
-              setIsFilterOpen(false);
-              navigate("/cars");
-            }}
-            className="bg-[#f26624] text-white px-4 py-2 rounded-full w-full hover:bg-[#262162] transition cursor-pointer text-sm"
-          >
-            Clear All Filters
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setQuery(query);
+                setMinPrice(minPrice);
+                setMaxPrice(maxPrice);
+                setLocation(location);
+                setMinYom(minYom);
+                setMaxYom(maxYom);
+                setCurrentPage(1);
+                setIsFilterOpen(false); // Close filter on apply for mobile
+              }}
+              className="bg-[#f26624] text-white px-4 py-2 rounded-full w-full hover:bg-[#262162] transition cursor-pointer text-sm"
+            >
+              Apply Filters
+            </button>
+            <button
+              onClick={() => {
+                setListingType([]);
+                setSearchBy("");
+                setQuery("");
+                setMinPrice("");
+                setMaxPrice("");
+                setLocation("");
+                setMinYom("");
+                setMaxYom("");
+                setCurrency("");
+                setTransmission("");
+                setPropulsion("");
+                setFuelTypes([]);
+                setCondition("");
+                setBrandId(undefined);
+                setModelId(undefined);
+                setIsFilterOpen(false);
+                navigate("/cars");
+              }}
+              className="bg-gray-300 text-[#262162] px-4 py-2 rounded-full w-full hover:bg-gray-400 transition cursor-pointer text-sm"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
       </div>
     );
