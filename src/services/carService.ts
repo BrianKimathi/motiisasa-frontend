@@ -1,5 +1,5 @@
 import api from "../utils/api";
-import { AxiosError } from "axios"; // Add this import
+import { AxiosError } from "axios";
 import type {
   Car,
   Pagination,
@@ -268,7 +268,6 @@ export const carService = {
       if (isNaN(price)) {
         throw new Error("Invalid price");
       }
-      // Validate currency
       const validCurrency: "KES" | "USD" | undefined =
         currency === "KES" || currency === "USD" ? currency : undefined;
       if (!validCurrency) {
@@ -371,6 +370,7 @@ export const carService = {
       );
     }
   },
+
   getAuctionedCars: async (
     token: string,
     page: number,
@@ -522,9 +522,9 @@ export const carService = {
     }
   },
 
-  listBrands: async (signal?: AbortSignal): Promise<BrandResponse> => {
+  listBrands: async (): Promise<BrandResponse> => {
     try {
-      const response = await api.get("/car/brands", { signal });
+      const response = await api.get("/car/brands");
       console.log(
         "listBrands HTTP status:",
         response.status,
@@ -544,14 +544,9 @@ export const carService = {
     }
   },
 
-  listCarModels: async (
-    brandId: number,
-    signal?: AbortSignal
-  ): Promise<CarModelResponse> => {
+  listCarModels: async (brandId: number): Promise<CarModelResponse> => {
     try {
-      const response = await api.get(`/car/brands/${brandId}/models`, {
-        signal,
-      });
+      const response = await api.get(`/car/brands/${brandId}/models`);
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

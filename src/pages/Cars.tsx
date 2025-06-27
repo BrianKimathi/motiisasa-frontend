@@ -8,7 +8,13 @@ import type { AppDispatch, RootState } from "../redux/store";
 import { fetchAllCars } from "../redux/carsSlice";
 import { toast } from "react-toastify";
 import { FaTimes, FaSearch, FaHeart, FaFilter } from "react-icons/fa";
-import type { Car, Pagination, CarFilters, Brand, CarModel } from "../types/types";
+import type {
+  Car,
+  Pagination,
+  CarFilters,
+  Brand,
+  CarModel,
+} from "../types/types";
 import Layout from "../components/Layout";
 
 // SWR fetcher for cars
@@ -353,7 +359,6 @@ const Cars = () => {
 
   useEffect(() => {
     debouncedUpdateURL();
-    debouncedApplyFilters();
     return () => {
       debouncedUpdateURL.cancel();
       debouncedApplyFilters.cancel();
@@ -722,9 +727,12 @@ const Cars = () => {
               ref={queryInputRef}
               type="text"
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                debouncedApplyFilters();
+              onChange={(e) => setQuery(e.target.value)}
+              onBlur={() => debouncedApplyFilters()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  debouncedApplyFilters();
+                }
               }}
               placeholder="Search..."
               className="border border-gray-300 p-2 w-full rounded-lg mt-1 focus:ring-2 focus:ring-[#f26624] transition text-sm"
@@ -843,6 +851,11 @@ const Cars = () => {
                   const value = e.target.value;
                   if (value === "" || Number(value) >= 0) {
                     setMinPrice(value);
+                  }
+                }}
+                onBlur={() => debouncedApplyFilters()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     debouncedApplyFilters();
                   }
                 }}
@@ -858,6 +871,11 @@ const Cars = () => {
                   const value = e.target.value;
                   if (value === "" || Number(value) >= 0) {
                     setMaxPrice(value);
+                  }
+                }}
+                onBlur={() => debouncedApplyFilters()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     debouncedApplyFilters();
                   }
                 }}
@@ -891,7 +909,12 @@ const Cars = () => {
                   | "Both"
                   | "";
                 setLocation(value);
-                debouncedApplyFilters();
+              }}
+              onBlur={() => debouncedApplyFilters()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  debouncedApplyFilters();
+                }
               }}
               className="border border-gray-300 p-2 w-full rounded-lg mt-1 focus:ring-2 focus:ring-[#f26624] transition text-sm"
             >
@@ -934,6 +957,11 @@ const Cars = () => {
                       Number(value) <= new Date().getFullYear())
                   ) {
                     setMinYom(value);
+                  }
+                }}
+                onBlur={() => debouncedApplyFilters()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     debouncedApplyFilters();
                   }
                 }}
@@ -954,6 +982,11 @@ const Cars = () => {
                       Number(value) <= new Date().getFullYear())
                   ) {
                     setMaxYom(value);
+                  }
+                }}
+                onBlur={() => debouncedApplyFilters()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     debouncedApplyFilters();
                   }
                 }}
@@ -1124,7 +1157,8 @@ const Cars = () => {
                 setMinYom(minYom);
                 setMaxYom(maxYom);
                 setCurrentPage(1);
-                setIsFilterOpen(false); // Close filter on apply for mobile
+                setIsFilterOpen(false);
+                debouncedApplyFilters.flush(); // Force immediate filter application
               }}
               className="bg-[#f26624] text-white px-4 py-2 rounded-full w-full hover:bg-[#262162] transition cursor-pointer text-sm"
             >

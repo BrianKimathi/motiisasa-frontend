@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { FaFilter } from "react-icons/fa";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { debounce } from "lodash";
 import { carService } from "../services/carService";
@@ -16,10 +16,10 @@ import { fetchAllCars } from "../redux/carsSlice";
 
 export default function Search() {
   const dispatch = useDispatch<AppDispatch>();
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { error } = useSelector((state: RootState) => state.cars);
-  const fetchError = error.allCars; // Select allCars error
+  const fetchError = error.allCars;
   const [activeTab, setActiveTab] = useState<"name" | "model" | "year">("name");
   const [listingType, setListingType] = useState<
     ("sale" | "hire" | "auction")[]
@@ -111,9 +111,8 @@ export default function Search() {
   // Fetch brands on mount
   useEffect(() => {
     console.log("Brands useEffect mounted at", new Date().toISOString());
-    const controller = new AbortController();
     carService
-      .listBrands(controller.signal)
+      .listBrands()
       .then((res: BrandResponse) => {
         console.log("listBrands response:", JSON.stringify(res));
         if (res.status === "success" && Array.isArray(res.data)) {
@@ -128,19 +127,11 @@ export default function Search() {
         }
       })
       .catch((err: unknown) => {
-        if (err instanceof Error && err.name !== "AbortError") {
-          console.error(
-            "Error fetching brands:",
-            err.name,
-            err.message,
-            err.stack
-          );
-        }
+        console.error(
+          "Error fetching brands:",
+          err instanceof Error ? err.message : err
+        );
       });
-    return () => {
-      console.log("Brands useEffect cleanup at", new Date().toISOString());
-      controller.abort();
-    };
   }, []);
 
   // Fetch models when brandId changes
@@ -150,11 +141,10 @@ export default function Search() {
       setModelId(null);
       return;
     }
-    const controller = new AbortController();
     carService
-      .listCarModels(brandId, controller.signal)
+      .listCarModels(brandId)
       .then((res: CarModelResponse) => {
-        console.log("Car Models API Response:", res); // Log for debugging
+        console.log("Car Models API Response:", res);
         if (res.status === "success" && res.data) {
           setModels(res.data);
         } else {
@@ -163,11 +153,11 @@ export default function Search() {
         }
       })
       .catch((err: unknown) => {
-        if (err instanceof Error && err.name !== "AbortError") {
-          console.error("Error fetching models:", err.message);
-        }
+        console.error(
+          "Error fetching models:",
+          err instanceof Error ? err.message : err
+        );
       });
-    return () => controller.abort();
   }, [brandId]);
 
   // Fetch suggestions when searchQuery changes (debounced)
@@ -222,7 +212,7 @@ export default function Search() {
       searchParams
         .get("listing_type")
         ?.split(",")
-        ?.filter((t): t is "sale" | "hire" | "auction" =>
+        ?.filter((t): t is "sale" | "273a4hire" | "auction" =>
           listingTypes.includes(t as any)
         ) || []
     );
@@ -344,21 +334,21 @@ export default function Search() {
     debounce(async (filters: CarFilters) => {
       try {
         await dispatch(fetchAllCars({ page: 1, perPage: 9, filters })).unwrap();
-        setSearchParams(
+        const queryParams = new URLSearchParams(
           Object.fromEntries(
             Object.entries({
               ...filters,
-              location: filters.location || "Both", // Map back to UI-friendly value
-              fuel_type: filters.fuel_type, // Keep as comma-separated
+              location: filters.location || "Both",
+              fuel_type: filters.fuel_type,
             }).map(([key, value]) => [key, String(value)])
-          ),
-          { replace: true }
+          )
         );
+        navigate(`/cars?${queryParams.toString()}`);
       } catch (error: unknown) {
         console.error("Search failed:", error);
       }
     }, 600),
-    [dispatch, setSearchParams]
+    [dispatch, navigate]
   );
 
   // Trigger search
@@ -419,6 +409,12 @@ export default function Search() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+          onBlur={() => debouncedSearch(getFilters())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              debouncedSearch(getFilters());
+            }
+          }}
         />
         {showSuggestions && suggestions.length > 0 && (
           <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
@@ -539,6 +535,12 @@ export default function Search() {
                 placeholder="e.g., 2015"
                 value={minYom}
                 onChange={(e) => setMinYom(e.target.value)}
+                onBlur={() => debouncedSearch(getFilters())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    debouncedSearch(getFilters());
+                  }
+                }}
               />
             </div>
             <div>
@@ -549,6 +551,12 @@ export default function Search() {
                 placeholder="e.g., 2025"
                 value={maxYom}
                 onChange={(e) => setMaxYom(e.target.value)}
+                onBlur={() => debouncedSearch(getFilters())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    debouncedSearch(getFilters());
+                  }
+                }}
               />
             </div>
           </div>
@@ -564,6 +572,12 @@ export default function Search() {
                 placeholder="Min Price"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
+                onBlur={() => debouncedSearch(getFilters())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    debouncedSearch(getFilters());
+                  }
+                }}
               />
             </div>
             <div>
@@ -576,6 +590,12 @@ export default function Search() {
                 placeholder="Max Price"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
+                onBlur={() => debouncedSearch(getFilters())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    debouncedSearch(getFilters());
+                  }
+                }}
               />
             </div>
           </div>
@@ -617,7 +637,7 @@ export default function Search() {
             </select>
           </div>
 
-          <div className="mt-4">
+          <div className="mt dip-4">
             <label className="block text-gray-700 font-medium">
               Propulsion
             </label>
@@ -736,6 +756,7 @@ export default function Search() {
             setFuelTypes([]);
             setCondition("");
             setSearchParams({}, { replace: true });
+            navigate("/cars");
           }}
         >
           Clear Filters
