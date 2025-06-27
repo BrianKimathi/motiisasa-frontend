@@ -10,8 +10,8 @@ function Home() {
     <Layout>
       <main className="pt-32 flex flex-col items-center">
         <HeroSection />
-        <Search />
         <Assurance />
+        <Search />
         <Latest />
         <Customer />
       </main>
