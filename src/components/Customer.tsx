@@ -80,6 +80,7 @@ const Customer = () => {
         }
       } catch (error: unknown) {
         const err = error as { message?: string };
+        toast.error(err.message || "Failed to load feedback");
       } finally {
         setLoading(false);
       }
@@ -177,6 +178,7 @@ const Customer = () => {
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
+      toast.error(err.message || "Failed to submit feedback");
     } finally {
       setFormSubmitting(false);
     }
