@@ -1,5 +1,3 @@
-import api from "../utils/api";
-import { AxiosError } from "axios";
 import type {
   Car,
   Pagination,
@@ -11,6 +9,8 @@ import type {
 } from "../types/types";
 
 export type { Car, Pagination, CarResponse };
+
+const API_URL = "https://admin.motiisasa.co.ke/api";
 
 export const carService = {
   fetchMyCars: async (
@@ -25,14 +25,26 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/my-cars", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/my-cars?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch cars");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to fetch cars");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch cars");
     }
   },
 
@@ -42,28 +54,45 @@ export const carService = {
     perPage: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.get("/car/favorites", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/favorites?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch wishlist");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch wishlist"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch wishlist");
     }
   },
 
   deleteCar: async (token: string, carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.delete(`/car/cars/${carId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch(`${API_URL}/car/cars/${carId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to delete car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to delete car");
     }
   },
 
@@ -72,16 +101,21 @@ export const carService = {
     formData: FormData
   ): Promise<CarResponse> => {
     try {
-      const response = await api.post("/car/cars", formData, {
+      const response = await fetch(`${API_URL}/car/cars`, {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
         },
+        body: formData,
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to create car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to create car");
     }
   },
 
@@ -91,16 +125,21 @@ export const carService = {
     formData: FormData
   ): Promise<CarResponse> => {
     try {
-      const response = await api.put(`/car/cars/${carId}`, formData, {
+      const response = await fetch(`${API_URL}/car/cars/${carId}`, {
+        method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
         },
+        body: formData,
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to update car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to update car");
     }
   },
 
@@ -112,16 +151,21 @@ export const carService = {
     try {
       const formData = new FormData();
       images.forEach((image) => formData.append("images", image));
-      const response = await api.post(`/car/cars/${carId}/images`, formData, {
+      const response = await fetch(`${API_URL}/car/cars/${carId}/images`, {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
         },
+        body: formData,
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to add images");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to add images");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to add images");
     }
   },
 
@@ -131,14 +175,22 @@ export const carService = {
     imageUrl: string
   ): Promise<CarResponse> => {
     try {
-      const response = await api.delete(`/car/cars/${carId}/image`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { image_url: imageUrl },
+      const response = await fetch(`${API_URL}/car/cars/${carId}/image`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ image_url: imageUrl }),
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete image");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to delete image");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to delete image");
     }
   },
 
@@ -147,19 +199,22 @@ export const carService = {
     carId: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.post(
-        `/car/favorites/${carId}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/favorites/${carId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to add to favorites");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to add to favorites"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to add to favorites");
     }
   },
 
@@ -168,15 +223,21 @@ export const carService = {
     carId: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.delete(`/car/favorites/${carId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch(`${API_URL}/car/favorites/${carId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to remove from favorites");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to remove from favorites"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to remove from favorites");
     }
   },
 
@@ -186,19 +247,22 @@ export const carService = {
     message: string
   ): Promise<CarResponse> => {
     try {
-      const response = await api.post(
-        `/car/cars/${carId}/interest`,
-        { message },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/${carId}/interest`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to express interest");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to express interest"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to express interest");
     }
   },
 
@@ -213,23 +277,44 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/cars", {
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/published?${params}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch cars");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to fetch cars");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch cars");
     }
   },
 
   getCarById: async (carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.get(`/car/cars/${carId}`);
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/${carId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to fetch car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch car");
     }
   },
 
@@ -239,16 +324,25 @@ export const carService = {
     perPage: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.get("/car/my-cars/bids", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/my-cars/bids?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch bids on my cars");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch bids on my cars"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch bids on my cars");
     }
   },
 
@@ -285,21 +379,30 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/cars", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      if (response.data.status === "success" && response.data.data?.cars) {
-        response.data.data.cars = response.data.data.cars.filter(
-          (car: Car) => car.id !== carId
-        );
+      const response = await fetch(`${API_URL}/car/cars?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch similar cars");
       }
-      return response.data;
+      const data = await response.json();
+      if (data.status === "success" && data.data?.cars) {
+        data.data.cars = data.data.cars.filter((car: Car) => car.id !== carId);
+      }
+      return data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch similar cars"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch similar cars");
     }
   },
 
@@ -315,16 +418,26 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/cars/sale", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/sale?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch cars for sale");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch cars for sale"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch cars for sale");
     }
   },
 
@@ -340,34 +453,49 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/cars/rent", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/rent?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch cars for hire");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch cars for hire"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch cars for hire");
     }
   },
 
   getLatestCars: async (): Promise<CarResponse> => {
     try {
-      const response = await api.get("/car/cars/latest", {
+      const response = await fetch(`${API_URL}/car/cars/latest`, {
+        method: "GET",
         headers: {
           Accept: "application/json",
+          "Content-Type": "application/json",
         },
       });
-      console.log(`getLatestCars response: ${JSON.stringify(response.data)}`);
-      return response.data;
+      console.log(`getLatestCars response: ${response}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch latest cars");
+      }
+      const data = await response.json();
+      return data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
+      const err = error as { message?: string };
       console.error("getLatestCars error:", err);
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch latest cars"
-      );
+      throw new Error(err.message || "Failed to fetch latest cars");
     }
   },
 
@@ -383,16 +511,26 @@ export const carService = {
           ([, value]) => value !== undefined && value !== ""
         )
       );
-      const response = await api.get("/car/cars/auction", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage, ...validFilters },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
+        ...validFilters,
       });
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/auction?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch auctioned cars");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch auctioned cars"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch auctioned cars");
     }
   },
 
@@ -402,16 +540,28 @@ export const carService = {
     perPage: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.get("/car/admin/auction-cars", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
       });
-      return response.data;
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch auction cars"
+      const response = await fetch(
+        `${API_URL}/car/admin/auction-cars?${params}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch auction cars");
+      }
+      return response.json();
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch auction cars");
     }
   },
 
@@ -422,20 +572,25 @@ export const carService = {
     bidAmount: string
   ): Promise<CarResponse> => {
     try {
-      const response = await api.post(
-        `/car/admin/auction-cars/${carId}/bid`,
+      const response = await fetch(
+        `${API_URL}/car/admin/auction-cars/${carId}/bid`,
         {
-          user_id: userId,
-          bid_amount: bidAmount,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ user_id: userId, bid_amount: bidAmount }),
         }
       );
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create bid");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to create bid");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to create bid");
     }
   },
 
@@ -445,122 +600,172 @@ export const carService = {
     bidId: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.delete(
-        `/car/admin/auction-cars/${carId}/bids/${bidId}`,
+      const response = await fetch(
+        `${API_URL}/car/admin/auction-cars/${carId}/bids/${bidId}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
       );
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete bid");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to delete bid");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to delete bid");
     }
   },
 
   publishCar: async (token: string, carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.put(
-        `/car/cars/${carId}/publish`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/${carId}/publish`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to publish car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to publish car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to publish car");
     }
   },
 
   unpublishCar: async (token: string, carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.put(
-        `/car/${carId}/unpublish`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/${carId}/unpublish`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to unpublish car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to unpublish car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to unpublish car");
     }
   },
 
   verifyCar: async (token: string, carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.put(
-        `/car/cars/${carId}/verify`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/${carId}/verify`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to verify car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to verify car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to verify car");
     }
   },
 
   unverifyCar: async (token: string, carId: number): Promise<CarResponse> => {
     try {
-      const response = await api.put(
-        `/car/${carId}/unverify`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/${carId}/unverify`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to unverify car");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to unverify car");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to unverify car");
     }
   },
 
   listBrands: async (): Promise<BrandResponse> => {
     try {
-      const response = await api.get("/car/brands");
-      console.log(
-        "listBrands HTTP status:",
-        response.status,
-        "data:",
-        response.data
-      );
-      return response.data;
-    } catch (error: unknown) {
-      const err = error as AxiosError<{ message?: string }>;
-      console.error("listBrands error:", {
-        name: err.name,
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
+      const response = await fetch(`${API_URL}/car/brands`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
       });
-      throw new Error(err.response?.data?.message || "Failed to fetch brands");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch brands");
+      }
+      const data = await response.json();
+      console.log("listBrands HTTP status:", response.status, "data:", data);
+      return data;
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      console.error("listBrands error:", {
+        message: err.message,
+      });
+      throw new Error(err.message || "Failed to fetch brands");
     }
   },
 
   listCarModels: async (brandId: number): Promise<CarModelResponse> => {
     try {
-      const response = await api.get(`/car/brands/${brandId}/models`);
-      return response.data;
+      const response = await fetch(`${API_URL}/car/brands/${brandId}/models`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch models");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to fetch models");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch models");
     }
   },
 
   createBrand: async (data: { name: string }): Promise<BrandResponse> => {
     try {
-      const response = await api.post("/car/brands", data);
-      return response.data;
+      const response = await fetch(`${API_URL}/car/brands`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create brand");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to create brand");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to create brand");
     }
   },
 
@@ -569,11 +774,21 @@ export const carService = {
     data: { name: string }
   ): Promise<CarModelResponse> => {
     try {
-      const response = await api.post(`/car/brands/${brandId}/models`, data);
-      return response.data;
+      const response = await fetch(`${API_URL}/car/brands/${brandId}/models`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create model");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to create model");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to create model");
     }
   },
 
@@ -581,15 +796,21 @@ export const carService = {
     query: string
   ): Promise<SearchSuggestionsResponse> => {
     try {
-      const response = await api.get("/car/suggestions", {
-        params: { query },
+      const params = new URLSearchParams({ query });
+      const response = await fetch(`${API_URL}/car/suggestions?${params}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch suggestions");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(
-        err.response?.data?.message || "Failed to fetch suggestions"
-      );
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch suggestions");
     }
   },
 
@@ -599,17 +820,22 @@ export const carService = {
     bidAmount: string
   ): Promise<CarResponse> => {
     try {
-      const response = await api.post(
-        `/car/cars/${carId}/bid`,
-        { bid_amount: bidAmount },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      return response.data;
+      const response = await fetch(`${API_URL}/car/cars/${carId}/bid`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bid_amount: bidAmount }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to place bid");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to place bid");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to place bid");
     }
   },
 
@@ -620,14 +846,28 @@ export const carService = {
     perPage: number
   ): Promise<CarResponse> => {
     try {
-      const response = await api.get(`/car/cars/${carId}/bids`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, per_page: perPage },
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(),
       });
-      return response.data;
+      const response = await fetch(
+        `${API_URL}/car/cars/${carId}/bids?${params}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch bids");
+      }
+      return response.json();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      throw new Error(err.response?.data?.message || "Failed to fetch bids");
+      const err = error as { message?: string };
+      throw new Error(err.message || "Failed to fetch bids");
     }
   },
 };

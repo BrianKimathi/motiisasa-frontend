@@ -24,7 +24,7 @@ function App() {
           <Route path="/cardetails" element={<CarDetailsPage />} />
           <Route path="/cars" element={<Cars />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/sell-car" element={<SellCar />} />
+          <Route path="/sellcar" element={<SellCar />} />
           <Route
             path="/seller-type-selection"
             element={<SellerTypeSelection />}
@@ -35,7 +35,7 @@ function App() {
           />
           <Route path="/profile" element={<User />} />
           <Route path="/user-type-selection" element={<UserTypeSelection />} />
-          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/verify" element={<VerifyOtp />} />
         </Route>
       </Routes>
     </AuthProvider>

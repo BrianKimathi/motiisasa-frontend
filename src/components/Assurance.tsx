@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 
 const Assurance = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -82,12 +81,6 @@ const Assurance = () => {
                 <p className="text-[#262162] text-base md:text-lg lg:text-xl mb-6 leading-relaxed">
                   {slide.description}
                 </p>
-                <Link
-                  to={slide.link}
-                  className="inline-block px-6 py-3 bg-gradient-to-r from-[#f26624] to-[#ff8c42] text-white font-semibold rounded-lg shadow-md hover:from-[#262162] hover:to-[#f26624] transition-all duration-300"
-                >
-                  {slide.buttonText} →
-                </Link>
               </div>
             </div>
           ))}

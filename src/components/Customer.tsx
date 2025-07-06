@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
-import { feedbackService } from "../services/feedbackService";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 
@@ -10,6 +9,26 @@ interface Feedback {
   review: string;
   is_published: boolean;
   created_at: string;
+}
+
+interface FeedbackResponse {
+  status: "success" | "error";
+  message: string;
+  data: {
+    feedback?: Feedback[];
+    pagination?: {
+      page: number;
+      per_page: number;
+      total: number;
+      pages: number;
+    };
+    id?: number;
+    name?: string;
+    email?: string;
+    review?: string;
+    is_published?: boolean;
+    created_at?: string;
+  };
 }
 
 const Customer = () => {
@@ -24,18 +43,43 @@ const Customer = () => {
   });
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const intervalRef = useRef<number | null>(null); // Changed NodeJS.Timeout to number
+  const intervalRef = useRef<number | null>(null);
 
   // Fetch feedback
   useEffect(() => {
     const fetchFeedback = async () => {
       try {
-        const response = await feedbackService.getFeedback(1, 10);
-        if (response.status === "success" && response.data.feedback) {
-          setFeedbackList(response.data.feedback.filter((f) => f.is_published));
+        setLoading(true);
+        const params = new URLSearchParams({
+          page: "1",
+          per_page: "10",
+        });
+        const response = await fetch(
+          `https://admin.motiisasa.co.ke/api/feedback/published?${params}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to fetch feedback");
         }
-      } catch (error) {
-        toast.error("Failed to load feedback");
+
+        const responseData: FeedbackResponse = await response.json();
+        if (responseData.status === "success" && responseData.data.feedback) {
+          setFeedbackList(
+            responseData.data.feedback.filter((f) => f.is_published)
+          );
+        } else {
+          throw new Error(responseData.message || "Failed to load feedback");
+        }
+      } catch (error: unknown) {
+        const err = error as { message?: string };
       } finally {
         setLoading(false);
       }
@@ -99,15 +143,40 @@ const Customer = () => {
 
     setFormSubmitting(true);
     try {
-      const response = await feedbackService.createFeedback(formData);
-      if (response.status === "success") {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(
+        "https://admin.motiisasa.co.ke/api/feedback",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(formData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit feedback");
+      }
+
+      const responseData: FeedbackResponse = await response.json();
+      if (responseData.status === "success") {
         toast.success(
           "Feedback submitted successfully! Awaiting admin approval."
         );
         setFormData({ ...formData, review: "" });
+      } else {
+        throw new Error(responseData.message || "Failed to submit feedback");
       }
-    } catch (error) {
-      toast.error("Failed to submit feedback");
+    } catch (error: unknown) {
+      const err = error as { message?: string };
     } finally {
       setFormSubmitting(false);
     }

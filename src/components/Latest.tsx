@@ -1,12 +1,8 @@
-// src/components/Latest.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { carService } from "../services/carService";
 import { ClipLoader } from "react-spinners";
-import { toast } from "react-toastify";
 import type { Car, CarResponse } from "../types/types";
-import { AxiosError } from "axios";
 
 const Latest = () => {
   const { user, authLoading } = useAuth();
@@ -15,42 +11,72 @@ const Latest = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchLatestCars = async () => {
+    let isMounted = true;
+
+    const fetchLatestCars = async (retryCount = 2) => {
+      if (authLoading || !isMounted) return;
+
       try {
         setLoading(true);
         setError(null);
-        const response: CarResponse = await carService.getLatestCars();
-        console.log("getLatestCars response:", response);
-        if (
-          response.status === "success" &&
-          response.data &&
-          response.data.cars
-        ) {
-          setCars(response.data.cars.slice(0, 4));
+
+        const response = await fetch(
+          "https://admin.motiisasa.co.ke/api/car/cars/latest",
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to fetch latest cars");
+        }
+
+        const responseData: CarResponse = await response.json();
+        console.log("getLatestCars response:", responseData);
+
+        if (responseData.status === "success" && responseData.data?.cars) {
+          setCars(responseData.data.cars.slice(0, 4));
         } else {
-          const message = response.message || "Failed to load cars";
+          const message = responseData.message || "Failed to load cars";
           setError(message);
-          toast.error(message);
-          console.error("getLatestCars response error:", response);
+          console.error("getLatestCars response error:", responseData);
         }
       } catch (error: unknown) {
-        let errorMessage = "Failed to load latest cars";
-        if (error instanceof AxiosError && error.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-        setError(errorMessage);
-        toast.error(errorMessage);
+        const err = error as { message?: string };
+        let errorMessage = err.message || "Failed to load latest cars";
         console.error("getLatestCars error:", {
           message: errorMessage,
-          error,
+          details: err,
         });
+        if (retryCount > 0) {
+          console.log(`Retrying... Attempts left: ${retryCount}`);
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+          await fetchLatestCars(retryCount - 1);
+        } else {
+          setError(errorMessage);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchLatestCars();
-  }, []);
+    return () => {
+      isMounted = false;
+    }; // Cleanup on unmount
+  }, [authLoading]);
+
+  if (authLoading)
+    return (
+      <div className="text-center mt-8">
+        <ClipLoader color="#f26624" size={40} />
+      </div>
+    );
 
   return (
     <section className="w-full items-center justify-between py-12 md:py-20">

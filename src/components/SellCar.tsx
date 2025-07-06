@@ -12,7 +12,68 @@ import { carService } from "../services/carService";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
-import type { CarResponse } from "../types/types"; // Removed Car, User
+
+// Define the Car interface based on the API response
+export interface Car {
+  id: number;
+  brand: string;
+  model: string;
+  registration_number: string;
+  colour: string;
+  year_of_manufacture: number;
+  mileage: number;
+  mileage_unit: "KM" | "Miles";
+  has_accident_history: boolean;
+  asking_price: string;
+  location: string;
+  transmission_type: "Automatic" | "Manual" | null;
+  propulsion: "Gas" | "Electric" | "Hybrid" | null;
+  fuel_type: "Petrol" | "Diesel" | null;
+  condition: "Brand New" | "Foreign Used" | "Locally Used" | null;
+  acceleration: string | null;
+  consumption_rate: string | null;
+  features: string | string[];
+  listing_type: "sale" | "auction" | "hire" | null;
+  import_status: string | null;
+  price_tax: string | null;
+  currency: "KES" | "USD" | null;
+  auction_end_time: string | null;
+  images: string[];
+  is_published: boolean;
+  is_sold: boolean;
+  is_verified: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    id: number;
+    email: string;
+    address: string | null;
+    city: string | null;
+    created_at: string;
+    id_back_image: string | null;
+    id_front_image: string | null;
+    id_number: string | null;
+    is_verified: boolean;
+    name: string;
+    phone: string;
+    postal_code: string | null;
+    profile_photo: string | null;
+    role: string;
+    seller_type: string;
+    showroom_corporate: { id: number } | null;
+    state: string | null;
+    updated_at: string;
+  };
+  vehicle_category: string;
+  car_type: string | null;
+}
+
+export interface CarResponse {
+  data: Car | null;
+  message: string;
+  status: string;
+}
 
 const SellCar = () => {
   const navigate = useNavigate();
@@ -100,47 +161,39 @@ const SellCar = () => {
   }, [user, id]);
 
   useEffect(() => {
-    if (id && token && !hasFetchedCarRef.current) {
-      hasFetchedCarRef.current = true;
+    if (id && token) {
       setIsLoading(true);
       carService
         .getCarById(Number(id))
         .then((res: CarResponse) => {
-          if (res.status === "success" && res.data?.car) {
-            const car = res.data.car;
+          console.log("API Response:", res);
+          if (res.data) {
+            const car = res.data;
             setBrand(car.brand || "");
             setModel(car.model || "");
             setRegistrationNumber(car.registration_number || "");
             setColour(car.colour || "");
             setYearOfManufacture(car.year_of_manufacture?.toString() || "");
             setMileage(car.mileage?.toString() || "");
-            setMileageUnit((car.mileage_unit as "KM" | "Miles") || "KM");
+            setMileageUnit(car.mileage_unit || "KM");
             setHasAccidentHistory(car.has_accident_history ? "Yes" : "No");
             setAskingPrice(car.asking_price || "");
             setLocation(car.location || "");
-            setTransmissionType(
-              (car.transmission_type as "Automatic" | "Manual" | "") || ""
-            );
-            setPropulsion(
-              (car.propulsion as "Gas" | "Electric" | "Hybrid" | "") || ""
-            );
-            setFuelType((car.fuel_type as "Petrol" | "Diesel" | "") || "");
-            setCondition(
-              (car.condition as
-                | "Brand New"
-                | "Foreign Used"
-                | "Locally Used"
-                | "") || ""
-            );
+            setTransmissionType(car.transmission_type || "");
+            setPropulsion(car.propulsion || "");
+            setFuelType(car.fuel_type || "");
+            setCondition(car.condition || "");
             setAcceleration(car.acceleration || "");
             setConsumptionRate(car.consumption_rate || "");
-            setFeaturesList(car.features || []);
-            setListingType(
-              (car.listing_type as "sale" | "auction" | "hire") || ""
+            setFeaturesList(
+              typeof car.features === "string"
+                ? car.features.split(",").map((f) => f.trim())
+                : car.features || []
             );
+            setListingType(car.listing_type || "");
             setImportStatus(car.import_status || "");
             setPriceTax(car.price_tax || "");
-            setCurrency((car.currency as "KES" | "USD") || "KES");
+            setCurrency(car.currency || "KES");
             setExistingImages(car.images || []);
             setAuctionEndDate(
               car.auction_end_time
@@ -192,7 +245,7 @@ const SellCar = () => {
       );
       const totalImages = images.length + existingImages.length + files.length;
       if (totalImages > 10) {
-        toast.error("You can have up to 10 images total.");
+        toast.error("You can regress up to 10 images total.");
         return;
       }
       setImages((prev) => [...prev, ...files]);
@@ -264,7 +317,7 @@ const SellCar = () => {
         setIsLoading(false);
         return;
       }
-      if (!/^[A-Z0-9-]+$/.test(registrationNumber)) {
+      if (!registrationNumber) {
         toast.error("Invalid registration number format");
         hasSubmittedRef.current = false;
         setIsLoading(false);
@@ -336,7 +389,7 @@ const SellCar = () => {
           id ? "Car updated successfully!" : "Car listing created successfully!"
         );
         setIsSubmitted(true);
-        setTimeout(() => navigate("/user?tab=myCars"), 2000);
+        setTimeout(() => navigate("/profile?tab=myCars"), 2000);
       } catch (error: unknown) {
         let errorMessage = "Failed to save car listing";
         if (error instanceof AxiosError && error.response?.data?.message) {

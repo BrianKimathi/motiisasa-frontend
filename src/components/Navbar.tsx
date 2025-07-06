@@ -57,9 +57,9 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { label: "Home", href: "/" },
-    { label: "Cars for Sale", href: "/cars?listing_type=sale&is_published=true&page=1" },
-    { label: "Cars for Hire", href: "/cars?listing_type=hire&is_published=true&page=1" },
-    { label: "Auction Cars", href: "/cars?listing_type=auction&is_published=true&page=1" },
+    { label: "Cars for Sale", href: "/cars?listing_type=sale&page=1" },
+    { label: "Cars for Hire", href: "/cars?listing_type=hire&page=1" },
+    { label: "Auction Cars", href: "/cars?listing_type=auction&page=1" },
     { label: "About Us", href: "/about" },
     { label: "Contact Us", href: "/contact" },
   ];
@@ -76,7 +76,9 @@ const Navbar: React.FC = () => {
   const profileImage = user?.profile_photo
     ? user.profile_photo.startsWith("http")
       ? user.profile_photo
-      : `${import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"}/Uploads/users/profile/${user.profile_photo}`
+      : `${
+          import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
+        }/Uploads/users/profile/${user.profile_photo}`
     : "/profile.png";
 
   return (
@@ -208,7 +210,7 @@ const Navbar: React.FC = () => {
                 Login
               </button>
               <button
-                onClick={() => navigate("/register")}
+                onClick={() => navigate("/authentication")}
                 className="bg-[#f26624] text-white px-3 py-2 rounded-full text-sm xl:text-base font-semibold 
                   hover:bg-[#262162] transition-colors duration-300"
                 aria-label="Register"

@@ -159,7 +159,7 @@ export interface SearchSuggestionsResponse {
 export interface CarFilters {
   query?: string;
   search_by?: "name" | "model" | "year" | "registration";
-  listing_type?: string;
+  listing_type?: "sale" | "hire" | "auction";
   is_verified?: "true" | "false";
   is_published?: "true" | "false";
   budget?: string;
@@ -173,7 +173,15 @@ export interface CarFilters {
   model_id?: number;
   transmission_type?: "Automatic" | "Manual";
   propulsion?: "Gas" | "Electric" | "Hybrid";
-  fuel_type?: string;
+  fuel_type?: "Petrol" | "Diesel";
   condition?: "Brand New" | "Foreign Used" | "Locally Used";
+  car_type?:
+    | "Sedan"
+    | "SUV"
+    | "Truck"
+    | "Coupe"
+    | "Convertible"
+    | "Van"
+    | "Hatchback";
   user_id?: number;
 }

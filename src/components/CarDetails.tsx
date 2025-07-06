@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { carService } from "../services/carService";
 import type { Car, CarResponse } from "../services/carService";
 import { FaCarSide, FaMapMarkerAlt, FaGasPump, FaRoad } from "react-icons/fa";
-import { Link } from "react-router-dom";
 import SimilarCars from "../components/SimilarCars";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 
 const formatPrice = (
   price: string | null | undefined,
-  currency: string | null,
+  currency: string | null | undefined,
   isAuction: boolean = false,
   hasBid: boolean = false
 ): string => {
@@ -60,22 +59,18 @@ const CarDetails = () => {
         const response: CarResponse = await carService.getCarById(
           parseInt(carId)
         );
-        console.log(`Response: ${JSON.stringify(response, null, 2)}`);
-        if (response.status === "success" && response.data) {
-          setCar(response.data); // Updated: Use response.data directly
-          setSelectedImage(response.data.images?.[0] || "/placeholder.png");
-          toast.success("Car details loaded!");
+        if (response.status === "success" && response.data?.car) {
+          setCar(response.data.car);
+          setSelectedImage(response.data.car.images?.[0] || "/placeholder.png");
         } else {
           const message = response.message || "Car not found";
           setError(message);
-          toast.error(message);
         }
       } catch (err: unknown) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch car details";
         setError(errorMessage);
         toast.error(errorMessage);
-        console.error("getCarById error:", err);
       } finally {
         setLoading(false);
       }
@@ -151,11 +146,9 @@ const CarDetails = () => {
     return <div className="text-blue-500 text-center py-12">Car not found</div>;
   }
 
-  const featuresArr = car.features
-    ? car.features
-        .split(",")
-        .map((f) => f.trim())
-        .filter(Boolean)
+  // Handle features as an array or null, per the Car interface
+  const featuresArr: string[] = Array.isArray(car.features)
+    ? car.features.filter((f: string) => f.trim())
     : [];
 
   const displayPrice =
@@ -166,22 +159,17 @@ const CarDetails = () => {
   return (
     <>
       <section className="px-6 md:px-16 lg:px-24 py-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Image Slider & Price */}
         <div>
           <div className="border rounded-lg overflow-hidden">
             <img
               src={selectedImage || "/placeholder.png"}
               alt={`${car.brand} ${car.model}`}
               className="w-full h-96 object-cover"
-              onError={(e) => {
-                console.log(`Image load error for ${selectedImage}`);
-                e.currentTarget.src = "/placeholder.png";
-              }}
             />
           </div>
           {car.images && car.images.length > 1 && (
             <div className="flex gap-2 mt-4 overflow-x-auto">
-              {car.images.map((img, index) => (
+              {car.images.map((img: string, index: number) => (
                 <img
                   key={index}
                   src={img}
@@ -192,10 +180,6 @@ const CarDetails = () => {
                       : "border-gray-300"
                   }`}
                   onClick={() => setSelectedImage(img)}
-                  onError={(e) => {
-                    console.log(`Thumbnail load error for ${img}`);
-                    e.currentTarget.src = "/placeholder.png";
-                  }}
                 />
               ))}
             </div>
@@ -269,18 +253,15 @@ const CarDetails = () => {
             </div>
           )}
         </div>
-
-        {/* Car Details */}
         <div>
           <h1 className="text-3xl font-bold text-[#262162]">
             {car.brand} {car.model} ({car.year_of_manufacture || "N/A"})
           </h1>
-
           {featuresArr.length > 0 && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold text-[#262162]">Features</h2>
               <div className="flex flex-wrap gap-2 mt-2">
-                {featuresArr.map((feature, idx) => (
+                {featuresArr.map((feature: string, idx: number) => (
                   <span
                     key={`${car.id}-feature-${idx}`}
                     className="bg-gray-200 text-gray-600 px-2 py-1 text-sm rounded"
@@ -291,7 +272,6 @@ const CarDetails = () => {
               </div>
             </div>
           )}
-
           <h2 className="text-xl font-semibold mt-6">Specifications</h2>
           <ul className="mt-2 text-gray-600 space-y-2">
             <li>
@@ -346,7 +326,6 @@ const CarDetails = () => {
               Tax: {car.price_tax || "N/A"}
             </li>
           </ul>
-
           <div className="mt-8 border-t pt-6">
             <h2 className="text-xl font-semibold text-[#262162]">
               Seller Information
@@ -360,10 +339,6 @@ const CarDetails = () => {
                 }
                 alt={car.user?.name || "Seller"}
                 className="w-10 h-10 rounded-full object-cover"
-                onError={(e) => {
-                  console.log(`Seller image load error`);
-                  e.currentTarget.src = "/placeholder.png";
-                }}
               />
               <div>
                 <h3 className="text-gray-900 font-semibold">
@@ -378,10 +353,62 @@ const CarDetails = () => {
                 )}
               </div>
             </div>
-            <p className="text-gray-600 mt-2">
-              Contact: {car.user?.phone || "N/A"}
-            </p>
-            <p className="text-gray-600">Email: {car.user?.email || "N/A"}</p>
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <a
+                href="https://wa.me/+254729389650"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#262162]"
+                title="Contact via WhatsApp"
+              >
+                <img
+                  src="https://simpleicons.org/icons/whatsapp.svg"
+                  alt="WhatsApp"
+                  className="w-6 h-6"
+                />
+                <span>+254729389650</span>
+              </a>
+              <a
+                href="mailto:oridotalks@gmail.com"
+                className="flex items-center gap-2 hover:text-[#262162]"
+                title="Email via Gmail"
+              >
+                <img
+                  src="https://simpleicons.org/icons/gmail.svg"
+                  alt="Gmail"
+                  className="w-6 h-6"
+                />
+                <span>oridotalks@gmail.com</span>
+              </a>
+              <a
+                href="https://twitter.com/motiisasa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#262162]"
+                title="Follow on Twitter"
+              >
+                <img
+                  src="https://simpleicons.org/icons/twitter.svg"
+                  alt="Twitter"
+                  className="w-6 h-6"
+                />
+                <span>Twitter</span>
+              </a>
+              <a
+                href="https://instagram.com/motiisasa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#262162]"
+                title="Follow on Instagram"
+              >
+                <img
+                  src="https://simpleicons.org/icons/instagram.svg"
+                  alt="Instagram"
+                  className="w-6 h-6"
+                />
+                <span>Instagram</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>

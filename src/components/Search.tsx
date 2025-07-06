@@ -3,16 +3,10 @@ import { FaFilter } from "react-icons/fa";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { debounce } from "lodash";
-import { carService } from "../services/carService";
+import { toast } from "react-toastify";
 import type { AppDispatch, RootState } from "../redux/store";
-import type {
-  CarFilters,
-  Brand,
-  CarModel,
-  BrandResponse,
-  CarModelResponse,
-} from "../types/types";
 import { fetchAllCars } from "../redux/carsSlice";
+import type { CarFilters, Brand, CarModel } from "../types/types";
 
 export default function Search() {
   const dispatch = useDispatch<AppDispatch>();
@@ -20,16 +14,17 @@ export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { error } = useSelector((state: RootState) => state.cars);
   const fetchError = error.allCars;
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [activeTab, setActiveTab] = useState<"name" | "model" | "year">("name");
   const [listingType, setListingType] = useState<
-    ("sale" | "hire" | "auction")[]
-  >([]);
+    "sale" | "hire" | "auction" | ""
+  >("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBudget, setSelectedBudget] = useState<string | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<
-    "Available in Kenya" | "Direct Import/International Stock" | "Both"
-  >("Both");
+    "Available in Kenya" | "Direct Import/International Stock" | "Both" | ""
+  >("");
   const [minYom, setMinYom] = useState("");
   const [maxYom, setMaxYom] = useState("");
   const [minPrice, setMinPrice] = useState("");
@@ -45,15 +40,30 @@ export default function Search() {
   const [propulsion, setPropulsion] = useState<
     "Gas" | "Electric" | "Hybrid" | ""
   >("");
-  const [fuelTypes, setFuelTypes] = useState<("Petrol" | "Diesel")[]>([]);
+  const [fuelType, setFuelType] = useState<"Petrol" | "Diesel" | "">("");
   const [condition, setCondition] = useState<
     "Brand New" | "Foreign Used" | "Locally Used" | ""
+  >("");
+  const [carType, setCarType] = useState<
+    | "Sedan"
+    | "SUV"
+    | "Truck"
+    | "Coupe"
+    | "Convertible"
+    | "Van"
+    | "Hatchback"
+    | ""
   >("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [models, setModels] = useState<CarModel[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionRef = useRef<HTMLDivElement>(null);
+  const minPriceInputRef = useRef<HTMLInputElement>(null);
+  const maxPriceInputRef = useRef<HTMLInputElement>(null);
+  const minYomInputRef = useRef<HTMLInputElement>(null);
+  const maxYomInputRef = useRef<HTMLInputElement>(null);
+  const activeInputRef = useRef<HTMLInputElement | null>(null);
 
   const budgetRanges = [
     "0 - 500K",
@@ -68,6 +78,7 @@ export default function Search() {
     "Available in Kenya",
     "Direct Import/International Stock",
     "Both",
+    "",
   ] as const;
   const currencies = ["All Currencies", "USD", "KES"] as const;
   const searchTabs = ["name", "model", "year"] as const;
@@ -76,61 +87,111 @@ export default function Search() {
   const propulsionTypes = ["Gas", "Electric", "Hybrid"] as const;
   const fuelTypeOptions = ["Petrol", "Diesel"] as const;
   const conditionTypes = ["Brand New", "Foreign Used", "Locally Used"] as const;
+  const carTypes = [
+    "Sedan",
+    "SUV",
+    "Truck",
+    "Coupe",
+    "Convertible",
+    "Van",
+    "Hatchback",
+  ] as const;
 
   // Map UI location to backend location
-  const mapLocationToBackend = (
-    location:
+  const mapLocationToBackend = useCallback(
+    (
+      location:
+        | "Available in Kenya"
+        | "Direct Import/International Stock"
+        | "Both"
+        | ""
+    ): string | undefined => {
+      switch (location) {
+        case "Available in Kenya":
+          return "Kenya";
+        case "Direct Import/International Stock":
+          return "International";
+        case "Both":
+        case "":
+          return undefined;
+      }
+    },
+    []
+  );
+
+  // Map backend location to UI location
+  const mapBackendToLocation = useCallback(
+    (
+      location: string | null
+    ):
       | "Available in Kenya"
       | "Direct Import/International Stock"
       | "Both"
-  ): string | undefined => {
-    switch (location) {
-      case "Available in Kenya":
-        return "Kenya";
-      case "Direct Import/International Stock":
-        return "International";
-      case "Both":
-        return undefined;
-    }
-  };
+      | "" => {
+      switch (location) {
+        case "Kenya":
+          return "Available in Kenya";
+        case "International":
+          return "Direct Import/International Stock";
+        case "Both":
+          return "Both";
+        default:
+          return "";
+      }
+    },
+    []
+  );
 
-  // Map backend location to UI location
-  const mapBackendToLocation = (
-    location: string | null
-  ): "Available in Kenya" | "Direct Import/International Stock" | "Both" => {
-    switch (location) {
-      case "Kenya":
-        return "Available in Kenya";
-      case "International":
-        return "Direct Import/International Stock";
-      default:
-        return "Both";
-    }
-  };
+  // Map budget to min_price and max_price
+  const mapBudgetToPriceRange = useCallback(
+    (budget: string | null): { min_price?: number; max_price?: number } => {
+      if (!budget) return {};
+      switch (budget) {
+        case "0 - 500K":
+          return { min_price: 0, max_price: 500000 };
+        case "500K - 1M":
+          return { min_price: 500000, max_price: 1000000 };
+        case "1M - 2M":
+          return { min_price: 1000000, max_price: 2000000 };
+        case "2M - 3M":
+          return { min_price: 2000000, max_price: 3000000 };
+        case "3M - 5M":
+          return { min_price: 3000000, max_price: 5000000 };
+        case "5M - 10M":
+          return { min_price: 5000000, max_price: 10000000 };
+        case "Above 10M":
+          return { min_price: 10000000 };
+        default:
+          return {};
+      }
+    },
+    []
+  );
 
   // Fetch brands on mount
   useEffect(() => {
-    console.log("Brands useEffect mounted at", new Date().toISOString());
-    carService
-      .listBrands()
-      .then((res: BrandResponse) => {
-        console.log("listBrands response:", JSON.stringify(res));
-        if (res.status === "success" && Array.isArray(res.data)) {
-          console.log(`Brands fetched: ${JSON.stringify(res)}`);
-          setBrands(res.data);
-        } else {
-          setBrands([]);
-          console.error(
-            "Failed to fetch brands. Response:",
-            JSON.stringify(res)
-          );
+    fetch("https://admin.motiisasa.co.ke/api/car/brands", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    })
+      .then((response: Response) => response.json())
+      .then(
+        (response: { status: string; data?: Brand[]; message?: string }) => {
+          if (response.status === "success" && Array.isArray(response.data)) {
+            setBrands(response.data);
+          } else {
+            setBrands([]);
+            toast.error(response.message || "Failed to load brands");
+          }
         }
-      })
-      .catch((err: unknown) => {
-        console.error(
-          "Error fetching brands:",
-          err instanceof Error ? err.message : err
-        );
+      )
+      .catch((error: unknown) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load brands";
+        toast.error(errorMessage);
       });
   }, []);
 
@@ -141,22 +202,27 @@ export default function Search() {
       setModelId(null);
       return;
     }
-    carService
-      .listCarModels(brandId)
-      .then((res: CarModelResponse) => {
-        console.log("Car Models API Response:", res);
-        if (res.status === "success" && res.data) {
-          setModels(res.data);
-        } else {
-          setModels([]);
-          console.error(res.message || "Failed to fetch models");
+    fetch(`https://admin.motiisasa.co.ke/api/car/brands/${brandId}/models`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((response: Response) => response.json())
+      .then(
+        (response: { status: string; data?: CarModel[]; message?: string }) => {
+          if (response.status === "success" && response.data) {
+            setModels(response.data);
+          } else {
+            setModels([]);
+            toast.error(response.message || "Failed to load models");
+          }
         }
-      })
-      .catch((err: unknown) => {
-        console.error(
-          "Error fetching models:",
-          err instanceof Error ? err.message : err
-        );
+      )
+      .catch((error: unknown) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load models";
+        toast.error(errorMessage);
       });
   }, [brandId]);
 
@@ -169,19 +235,38 @@ export default function Search() {
         return;
       }
       try {
-        const response = await carService.getSearchSuggestions(query);
-        if (response.status === "success" && response.data) {
-          setSuggestions(response.data);
+        const response = await fetch(
+          `https://admin.motiisasa.co.ke/api/car/suggestions?query=${encodeURIComponent(
+            query
+          )}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const responseData: {
+          status: string;
+          data?: string[];
+          message?: string;
+        } = await response.json();
+        if (responseData.status === "success" && responseData.data) {
+          setSuggestions(responseData.data);
           setShowSuggestions(true);
         } else {
           setSuggestions([]);
           setShowSuggestions(false);
-          console.error(response.message || "Failed to fetch suggestions");
+          toast.error(responseData.message || "Failed to fetch suggestions");
         }
-      } catch (err: unknown) {
-        console.error("Error fetching suggestions:", err);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch suggestions";
         setSuggestions([]);
         setShowSuggestions(false);
+        toast.error(errorMessage);
       }
     }, 300),
     [activeTab]
@@ -209,12 +294,8 @@ export default function Search() {
   // Sync state with searchParams
   useEffect(() => {
     setListingType(
-      searchParams
-        .get("listing_type")
-        ?.split(",")
-        ?.filter((t): t is "sale" | "273a4hire" | "auction" =>
-          listingTypes.includes(t as any)
-        ) || []
+      (searchParams.get("listing_type") as "sale" | "hire" | "auction" | "") ||
+        ""
     );
     setSearchQuery(searchParams.get("query") || "");
     setActiveTab(
@@ -248,13 +329,8 @@ export default function Search() {
       (searchParams.get("propulsion") as "Gas" | "Electric" | "Hybrid" | "") ||
         ""
     );
-    setFuelTypes(
-      searchParams
-        .get("fuel_type")
-        ?.split(",")
-        ?.filter((t): t is "Petrol" | "Diesel" =>
-          fuelTypeOptions.includes(t as any)
-        ) || []
+    setFuelType(
+      (searchParams.get("fuel_type") as "Petrol" | "Diesel" | "") || ""
     );
     setCondition(
       (searchParams.get("condition") as
@@ -263,106 +339,215 @@ export default function Search() {
         | "Locally Used"
         | "") || ""
     );
-  }, [searchParams]);
+    setCarType(
+      (searchParams.get("car_type") as
+        | "Sedan"
+        | "SUV"
+        | "Truck"
+        | "Coupe"
+        | "Convertible"
+        | "Van"
+        | "Hatchback"
+        | "") || ""
+    );
+    setIsInitialLoad(false);
+  }, [searchParams, mapBackendToLocation]);
 
-  // Parse budget range to min/max price
-  const parseBudgetRange = (
-    budget: string | null
-  ): { minPrice?: number; maxPrice?: number } => {
-    if (!budget) return {};
-    const range = budget
-      .replace("K", "000")
-      .replace("M", "000000")
-      .split(" - ");
-    if (budget === "Above 10M") {
-      return { minPrice: 10000000 };
-    }
-    return {
-      minPrice: parseFloat(range[0]),
-      maxPrice: range[1] ? parseFloat(range[1]) : undefined,
-    };
-  };
-
-  // Get filters
-  const getFilters = useCallback((): CarFilters => {
-    const { minPrice: budgetMin, maxPrice: budgetMax } =
-      parseBudgetRange(selectedBudget);
-    const filters: CarFilters = {
-      listing_type: listingType.length > 0 ? listingType.join(",") : undefined,
-      query: searchQuery || undefined,
-      search_by: activeTab !== "name" ? activeTab : undefined,
-      budget: undefined, // Backend doesn't use budget directly
-      location: mapLocationToBackend(selectedLocation),
-      min_yom: minYom ? parseInt(minYom) : undefined,
-      max_yom: maxYom ? parseInt(maxYom) : undefined,
-      min_price: minPrice ? parseFloat(minPrice) : budgetMin,
-      max_price: maxPrice ? parseFloat(maxPrice) : budgetMax,
-      currency:
-        currency !== "All Currencies" ? (currency as "KES" | "USD") : undefined,
-      brand_id: brandId ?? undefined,
-      model_id: modelId ?? undefined,
-      transmission_type: transmission || undefined,
-      propulsion: propulsion || undefined,
-      fuel_type: fuelTypes.length > 0 ? fuelTypes.join(",") : undefined,
-      condition: condition || undefined,
-      is_published: "true",
-    };
-    return Object.fromEntries(
-      Object.entries(filters).filter(([_, value]) => value !== undefined)
-    ) as CarFilters;
-  }, [
-    listingType,
-    searchQuery,
-    activeTab,
-    selectedBudget,
-    selectedLocation,
-    minYom,
-    maxYom,
-    minPrice,
-    maxPrice,
-    currency,
-    brandId,
-    modelId,
-    transmission,
-    propulsion,
-    fuelTypes,
-    condition,
-  ]);
-
-  // Debounced search
-  const debouncedSearch = useCallback(
-    debounce(async (filters: CarFilters) => {
-      try {
-        await dispatch(fetchAllCars({ page: 1, perPage: 9, filters })).unwrap();
-        const queryParams = new URLSearchParams(
-          Object.fromEntries(
-            Object.entries({
-              ...filters,
-              location: filters.location || "Both",
-              fuel_type: filters.fuel_type,
-            }).map(([key, value]) => [key, String(value)])
-          )
-        );
-        navigate(`/cars?${queryParams.toString()}`);
-      } catch (error: unknown) {
-        console.error("Search failed:", error);
+  // Input change handlers with focus preservation
+  const handleMinPriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (value === "" || (Number(value) >= 0 && !isNaN(Number(value)))) {
+        setMinPrice(value);
+        activeInputRef.current = minPriceInputRef.current;
+        setTimeout(() => activeInputRef.current?.focus(), 0);
       }
-    }, 600),
-    [dispatch, navigate]
+    },
+    []
   );
 
-  // Trigger search
-  const handleSearch = () => {
+  const handleMaxPriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (value === "" || (Number(value) >= 0 && !isNaN(Number(value)))) {
+        setMaxPrice(value);
+        activeInputRef.current = maxPriceInputRef.current;
+        setTimeout(() => activeInputRef.current?.focus(), 0);
+      }
+    },
+    []
+  );
+
+  const handleMinYomChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      const currentYear = new Date().getFullYear();
+      if (
+        value === "" ||
+        (Number(value) >= 1900 &&
+          Number(value) <= currentYear &&
+          !isNaN(Number(value)))
+      ) {
+        setMinYom(value);
+        activeInputRef.current = minYomInputRef.current;
+        setTimeout(() => activeInputRef.current?.focus(), 0);
+      }
+    },
+    []
+  );
+
+  const handleMaxYomChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      const currentYear = new Date().getFullYear();
+      if (
+        value === "" ||
+        (Number(value) >= 1900 &&
+          Number(value) <= currentYear &&
+          !isNaN(Number(value)))
+      ) {
+        setMaxYom(value);
+        activeInputRef.current = maxYomInputRef.current;
+        setTimeout(() => activeInputRef.current?.focus(), 0);
+      }
+    },
+    []
+  );
+
+  // Get filters
+  const getFilters = useCallback(
+    (isSearchOnly: boolean = false): CarFilters => {
+      const filters: CarFilters = {
+        is_published: "true",
+      };
+
+      if (searchQuery || isSearchOnly) {
+        filters.query = searchQuery || undefined;
+        filters.search_by = activeTab !== "name" ? activeTab : undefined;
+      }
+
+      if (!isSearchOnly) {
+        if (listingType) {
+          filters.listing_type = listingType;
+        }
+        if (selectedLocation && selectedLocation !== "Both") {
+          filters.location = mapLocationToBackend(selectedLocation);
+        }
+        if (minYom && !isNaN(parseInt(minYom))) {
+          filters.min_yom = parseInt(minYom);
+        }
+        if (maxYom && !isNaN(parseInt(maxYom))) {
+          filters.max_yom = parseInt(maxYom);
+        }
+        if (minPrice && !isNaN(parseFloat(minPrice))) {
+          filters.min_price = parseFloat(minPrice);
+        }
+        if (maxPrice && !isNaN(parseFloat(maxPrice))) {
+          filters.max_price = parseFloat(maxPrice);
+        }
+        if (selectedBudget) {
+          filters.budget = selectedBudget;
+          const priceRange = mapBudgetToPriceRange(selectedBudget);
+          if (priceRange.min_price) filters.min_price = priceRange.min_price;
+          if (priceRange.max_price) filters.max_price = priceRange.max_price;
+        }
+        if (currency !== "All Currencies") {
+          filters.currency = currency as "KES" | "USD";
+        }
+        if (brandId) {
+          filters.brand_id = brandId;
+        }
+        if (modelId) {
+          filters.model_id = modelId;
+        }
+        if (transmission) {
+          filters.transmission_type = transmission;
+        }
+        if (propulsion) {
+          filters.propulsion = propulsion;
+        }
+        if (fuelType) {
+          filters.fuel_type = fuelType;
+        }
+        if (condition) {
+          filters.condition = condition;
+        }
+        if (carType) {
+          filters.car_type = carType;
+        }
+      }
+
+      return Object.fromEntries(
+        Object.entries(filters).filter(
+          ([_, value]) => value !== undefined && value !== ""
+        )
+      ) as CarFilters;
+    },
+    [
+      searchQuery,
+      activeTab,
+      listingType,
+      selectedLocation,
+      minYom,
+      maxYom,
+      minPrice,
+      maxPrice,
+      selectedBudget,
+      currency,
+      brandId,
+      modelId,
+      transmission,
+      propulsion,
+      fuelType,
+      condition,
+      carType,
+      mapLocationToBackend,
+      mapBudgetToPriceRange,
+    ]
+  );
+
+  // Trigger search and navigate to /cars
+  const handleSearch = useCallback(() => {
     setShowSuggestions(false);
-    debouncedSearch(getFilters());
-  };
+    const filters = getFilters(false);
+    dispatch(fetchAllCars({ page: 1, perPage: 9, filters }));
+    const queryParams = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(filters).map(([key, value]) => [key, String(value)])
+      )
+    );
+    queryParams.set("page", "1");
+    setSearchParams(queryParams, { replace: true });
+    navigate(`/cars?${queryParams.toString()}`);
+  }, [dispatch, navigate, getFilters, setSearchParams]);
 
   // Handle suggestion selection
-  const handleSuggestionClick = (suggestion: string) => {
-    setSearchQuery(suggestion);
-    setShowSuggestions(false);
-    debouncedSearch(getFilters());
-  };
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      setSearchQuery(suggestion);
+      setShowSuggestions(false);
+      const filters = getFilters(true);
+      dispatch(fetchAllCars({ page: 1, perPage: 9, filters }));
+      const queryParams = new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(filters).map(([key, value]) => [key, String(value)])
+        )
+      );
+      queryParams.set("page", "1");
+      setSearchParams(queryParams, { replace: true });
+      navigate(`/cars?${queryParams.toString()}`);
+    },
+    [dispatch, navigate, getFilters, setSearchParams]
+  );
+
+  // Show loading spinner during initial load
+  if (isInitialLoad) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="w-16 h-16 border-t-4 border-[#f26624] border-dashed rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <section className="px-6 md:px-16 lg:px-24 py-12">
@@ -409,10 +594,9 @@ export default function Search() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-          onBlur={() => debouncedSearch(getFilters())}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              debouncedSearch(getFilters());
+              handleSearch();
             }
           }}
         />
@@ -469,20 +653,27 @@ export default function Search() {
               {listingTypes.map((type) => (
                 <label key={type} className="flex items-center">
                   <input
-                    type="checkbox"
-                    checked={listingType.includes(type)}
-                    onChange={(e) => {
-                      setListingType((prev) =>
-                        e.target.checked
-                          ? [...prev, type]
-                          : prev.filter((t) => t !== type)
-                      );
-                    }}
-                    className="mr-2"
+                    type="radio"
+                    name="listingType"
+                    value={type}
+                    checked={listingType === type}
+                    onChange={() => setListingType(type)}
+                    className="mr-2 accent-[#f26624]"
                   />
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </label>
               ))}
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="listingType"
+                  value=""
+                  checked={listingType === ""}
+                  onChange={() => setListingType("")}
+                  className="mr-2 accent-[#f26624]"
+                />
+                Any
+              </label>
             </div>
           </div>
 
@@ -496,7 +687,7 @@ export default function Search() {
                   setBrandId(id);
                   setModelId(null);
                 }}
-                className="border p-3 rounded-lg w-full mt-1"
+                className="border p-3 rounded-lg w-full mt-1 focus:ring-2 focus:ring-[#f26624] transition"
               >
                 <option value="">Select Brand</option>
                 {brands.map((brand) => (
@@ -513,7 +704,7 @@ export default function Search() {
                 onChange={(e) =>
                   setModelId(e.target.value ? parseInt(e.target.value) : null)
                 }
-                className="border p-3 rounded-lg w-full mt-1"
+                className="border p-3 rounded-lg w-full mt-1 focus:ring-2 focus:ring-[#f26624] transition"
                 disabled={!brandId}
               >
                 <option value="">Select Model</option>
@@ -530,33 +721,27 @@ export default function Search() {
             <div>
               <label className="block text-gray-700 font-medium">Min YOM</label>
               <input
+                ref={minYomInputRef}
                 type="number"
-                className="border p-3 rounded-lg w-full"
+                min="1900"
+                max={new Date().getFullYear()}
+                className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
                 placeholder="e.g., 2015"
                 value={minYom}
-                onChange={(e) => setMinYom(e.target.value)}
-                onBlur={() => debouncedSearch(getFilters())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    debouncedSearch(getFilters());
-                  }
-                }}
+                onChange={handleMinYomChange}
               />
             </div>
             <div>
               <label className="block text-gray-700 font-medium">Max YOM</label>
               <input
+                ref={maxYomInputRef}
                 type="number"
-                className="border p-3 rounded-lg w-full"
+                min="1900"
+                max={new Date().getFullYear()}
+                className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
                 placeholder="e.g., 2025"
                 value={maxYom}
-                onChange={(e) => setMaxYom(e.target.value)}
-                onBlur={() => debouncedSearch(getFilters())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    debouncedSearch(getFilters());
-                  }
-                }}
+                onChange={handleMaxYomChange}
               />
             </div>
           </div>
@@ -567,17 +752,13 @@ export default function Search() {
                 Min Price
               </label>
               <input
+                ref={minPriceInputRef}
                 type="number"
-                className="border p-3 rounded-lg w-full"
+                min="0"
+                className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
                 placeholder="Min Price"
                 value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                onBlur={() => debouncedSearch(getFilters())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    debouncedSearch(getFilters());
-                  }
-                }}
+                onChange={handleMinPriceChange}
               />
             </div>
             <div>
@@ -585,17 +766,13 @@ export default function Search() {
                 Max Price
               </label>
               <input
+                ref={maxPriceInputRef}
                 type="number"
-                className="border p-3 rounded-lg w-full"
+                min="0"
+                className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
                 placeholder="Max Price"
                 value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                onBlur={() => debouncedSearch(getFilters())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    debouncedSearch(getFilters());
-                  }
-                }}
+                onChange={handleMaxPriceChange}
               />
             </div>
           </div>
@@ -603,7 +780,7 @@ export default function Search() {
           <div className="mt-4">
             <label className="block text-gray-700 font-medium">Currency</label>
             <select
-              className="border p-3 rounded-lg w-full"
+              className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
               value={currency}
               onChange={(e) =>
                 setCurrency(e.target.value as "All Currencies" | "USD" | "KES")
@@ -622,7 +799,7 @@ export default function Search() {
               Transmission
             </label>
             <select
-              className="border p-3 rounded-lg w-full"
+              className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
               value={transmission}
               onChange={(e) =>
                 setTransmission(e.target.value as "Automatic" | "Manual" | "")
@@ -637,12 +814,12 @@ export default function Search() {
             </select>
           </div>
 
-          <div className="mt dip-4">
+          <div className="mt-4">
             <label className="block text-gray-700 font-medium">
               Propulsion
             </label>
             <select
-              className="border p-3 rounded-lg w-full"
+              className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
               value={propulsion}
               onChange={(e) =>
                 setPropulsion(
@@ -665,27 +842,34 @@ export default function Search() {
               {fuelTypeOptions.map((type) => (
                 <label key={type} className="flex items-center">
                   <input
-                    type="checkbox"
-                    checked={fuelTypes.includes(type)}
-                    onChange={(e) => {
-                      setFuelTypes((prev) =>
-                        e.target.checked
-                          ? [...prev, type]
-                          : prev.filter((t) => t !== type)
-                      );
-                    }}
-                    className="mr-2"
+                    type="radio"
+                    name="fuelType"
+                    value={type}
+                    checked={fuelType === type}
+                    onChange={() => setFuelType(type)}
+                    className="mr-2 accent-[#f26624]"
                   />
                   {type}
                 </label>
               ))}
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="fuelType"
+                  value=""
+                  checked={fuelType === ""}
+                  onChange={() => setFuelType("")}
+                  className="mr-2 accent-[#f26624]"
+                />
+                Any
+              </label>
             </div>
           </div>
 
           <div className="mt-4">
             <label className="block text-gray-700 font-medium">Condition</label>
             <select
-              className="border p-3 rounded-lg w-full"
+              className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
               value={condition}
               onChange={(e) =>
                 setCondition(
@@ -706,14 +890,42 @@ export default function Search() {
             </select>
           </div>
 
+          <div className="mt-4">
+            <label className="block text-gray-700 font-medium">Car Type</label>
+            <select
+              className="border p-3 rounded-lg w-full focus:ring-2 focus:ring-[#f26624] transition"
+              value={carType}
+              onChange={(e) =>
+                setCarType(
+                  e.target.value as
+                    | "Sedan"
+                    | "SUV"
+                    | "Truck"
+                    | "Coupe"
+                    | "Convertible"
+                    | "Van"
+                    | "Hatchback"
+                    | ""
+                )
+              }
+            >
+              <option value="">Select</option>
+              {carTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="mt-6">
             <h3 className="text-lg font-medium text-gray-700">
               Vehicle Location
             </h3>
-            <div className="grid grid-cols-3 gap-2 mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
               {vehicleLocations.map((location) => (
                 <button
-                  key={location}
+                  key={location || "None"}
                   className={`border px-4 py-2 rounded-lg transition ${
                     selectedLocation === location
                       ? "bg-[#262162] text-white border-[#262162]"
@@ -721,7 +933,7 @@ export default function Search() {
                   }`}
                   onClick={() => setSelectedLocation(location)}
                 >
-                  {location}
+                  {location || "None"}
                 </button>
               ))}
             </div>
@@ -739,11 +951,11 @@ export default function Search() {
         <button
           className="flex-1 bg-gray-300 text-gray-700 py-3 text-lg font-medium rounded-lg hover:bg-gray-400 transition"
           onClick={() => {
-            setListingType([]);
+            setListingType("");
             setSearchQuery("");
             setActiveTab("name");
             setSelectedBudget(null);
-            setSelectedLocation("Both");
+            setSelectedLocation("");
             setMinYom("");
             setMaxYom("");
             setMinPrice("");
@@ -753,10 +965,21 @@ export default function Search() {
             setModelId(null);
             setTransmission("");
             setPropulsion("");
-            setFuelTypes([]);
+            setFuelType("");
             setCondition("");
-            setSearchParams({}, { replace: true });
-            navigate("/cars");
+            setCarType("");
+            setSearchParams(
+              { is_published: "true", page: "1" },
+              { replace: true }
+            );
+            dispatch(
+              fetchAllCars({
+                page: 1,
+                perPage: 9,
+                filters: { is_published: "true" },
+              })
+            );
+            navigate("/cars?is_published=true&page=1");
           }}
         >
           Clear Filters
